@@ -1,0 +1,333 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "Message Generation API",
+        "description": "API for generating responses to user messages.",
+        "version": "1.0"
+    },
+    "servers": [
+        {
+            "url": "http://apim-zmu3dgqbq2cwi.azure-api.net/v1"
+        },
+        {
+            "url": "https://apim-zmu3dgqbq2cwi.azure-api.net/v1"
+        }
+    ],
+    "paths": {
+        "/message/feedback": {
+            "post": {
+                "summary": "Submit feedback for a message",
+                "description": "Submit feedback for a message",
+                "operationId": "post-message-feedback",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "message_id",
+                                    "message_feedback"
+                                ],
+                                "type": "object",
+                                "properties": {
+                                    "message_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "c42473d6-245d-451e-a5aa-2194a7057381"
+                                    },
+                                    "message_feedback": {
+                                        "type": "string",
+                                        "example": "out_of_scope"
+                                    }
+                                }
+                            },
+                            "example": {
+                                "message_id": "c42473d6-245d-451e-a5aa-2194a7057381",
+                                "message_feedback": "out_of_scope"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successfully updated message with feedback",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Successfully updated message with feedback out_of_scope"
+                                        },
+                                        "message_id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "example": "c42473d6-245d-451e-a5aa-2194a7057381"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "message": "Successfully updated message with feedback out_of_scope",
+                                    "message_id": "c42473d6-245d-451e-a5aa-2194a7057381"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/message/update": {
+            "post": {
+                "summary": "Update a message",
+                "description": "Update a message",
+                "operationId": "post-message-update",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "messages",
+                                    "conversation_id"
+                                ],
+                                "type": "object",
+                                "properties": {
+                                    "messages": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "role": {
+                                                    "type": "string"
+                                                },
+                                                "content": {
+                                                    "type": "string"
+                                                },
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "date": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "conversation_id": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "example": {
+                                "messages": [
+                                    {
+                                        "role": "string",
+                                        "content": "string",
+                                        "id": "string",
+                                        "date": "string"
+                                    }
+                                ],
+                                "conversation_id": "string"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "success"
+                                    ],
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/message/generate": {
+            "post": {
+                "summary": "Generate a response to a user message",
+                "description": "Generate a response to a user message",
+                "operationId": "post-message-generate",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "messages": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "user"
+                                                },
+                                                "content": {
+                                                    "type": "string",
+                                                    "example": "What is AAIP?"
+                                                },
+                                                "id": {
+                                                    "type": "string",
+                                                    "example": "091bf230-e99c-9451-ec91-f9b17c4d56f6"
+                                                },
+                                                "date": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-07-27T09:14:38.0000000+00:00"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "conversation_id": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "example": null
+                                    }
+                                }
+                            },
+                            "example": {
+                                "messages": [
+                                    {
+                                        "role": "user",
+                                        "content": "What is AAIP?",
+                                        "id": "091bf230-e99c-9451-ec91-f9b17c4d56f6",
+                                        "date": "2024-07-27T09:14:38.0000000+00:00"
+                                    }
+                                ],
+                                "conversation_id": null
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "apim-request-id": {
+                                            "type": "string",
+                                            "example": "f7ab0ae3-4536-44d9-b490-346cf6a9e4bf"
+                                        },
+                                        "choices": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "messages": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "content": {
+                                                                    "type": "string",
+                                                                    "example": ""
+                                                                },
+                                                                "role": {
+                                                                    "type": "string",
+                                                                    "example": "tool"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "created": {
+                                            "type": "integer",
+                                            "example": 1722544494
+                                        },
+                                        "history_metadata": {
+                                            "type": "object",
+                                            "properties": {
+                                                "conversation_id": {
+                                                    "type": "string",
+                                                    "example": "6f83b969-a393-41b9-acd5-e5d10d8752d7"
+                                                },
+                                                "date": {
+                                                    "type": "string",
+                                                    "example": "2024-08-01 14:34:47 MDT-0600"
+                                                }
+                                            }
+                                        },
+                                        "id": {
+                                            "type": "string",
+                                            "example": "9bbdf5ff-eb25-4214-8ac9-7de5274a2766"
+                                        },
+                                        "model": {
+                                            "type": "string",
+                                            "example": "gpt-4o"
+                                        },
+                                        "object": {
+                                            "type": "string",
+                                            "example": "extensions.chat.completion"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "apim-request-id": "f7ab0ae3-4536-44d9-b490-346cf6a9e4bf",
+                                    "choices": [
+                                        {
+                                            "messages": [
+                                                {
+                                                    "content": "",
+                                                    "role": "tool"
+                                                }
+                                            ]
+                                        }
+                                    ],
+                                    "created": 1722544494,
+                                    "history_metadata": {
+                                        "conversation_id": "6f83b969-a393-41b9-acd5-e5d10d8752d7",
+                                        "date": "2024-08-01 14:34:47 MDT-0600"
+                                    },
+                                    "id": "9bbdf5ff-eb25-4214-8ac9-7de5274a2766",
+                                    "model": "gpt-4o",
+                                    "object": "extensions.chat.completion"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "apiKeyHeader": {
+                "type": "apiKey",
+                "name": "Ocp-Apim-Subscription-Key",
+                "in": "header"
+            },
+            "apiKeyQuery": {
+                "type": "apiKey",
+                "name": "subscription-key",
+                "in": "query"
+            }
+        }
+    },
+    "security": [
+        {
+            "apiKeyHeader": []
+        },
+        {
+            "apiKeyQuery": []
+        }
+    ]
+}
