@@ -1,0 +1,148 @@
+name: Deploy Indexing Function
+
+run-name: Build and Deploy Indexing Function to ${{ github.event.inputs.environment }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - uat
+          - prd
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+    env:
+      APP_FOLDER: ./app/service/deploy_docs_to_index/function
+      PYTHON_VERSION: '3.11'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }} Environment
+        uses: actions/setup-python@v5.1.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Package App
+        run: |
+          pushd ${{ env.APP_FOLDER }}
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+          popd
+
+      - name: Upload App Artifacts
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v4.3.4
+        with:
+          name: app
+          path: ${{ env.APP_FOLDER }}
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy_dev:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev' }}
+    name: Deploy to Dev
+    needs: build
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: Download App Artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: app
+          path: ${{ github.workspace }}/app
+
+      - uses: azure/login@v2.1.0
+        name: Login to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: ./.github/actions/functions-deploy
+        name: Deploy to Azure Functions
+        with:
+          resource-group: ${{ vars.RG_NAME }}
+          functionapp-name: ${{ vars.INDEXING_FUNCTION_APP_NAME }}
+          package: ${{ github.workspace }}/app
+          enable-build-during-deployment: true
+          enable-oryx-build: true          
+
+  deploy_uat:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'uat' }}
+    name: Deploy to UAT
+    needs: build
+    environment: uat
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: Download App Artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: app
+          path: ${{ github.workspace }}/app
+
+      - uses: azure/login@v2.1.0
+        name: Login to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: ./.github/actions/functions-deploy
+        name: Deploy to Azure Functions
+        with:
+          resource-group: ${{ vars.RG_NAME }}
+          functionapp-name: ${{ vars.INDEXING_FUNCTION_APP_NAME }}
+          package: ${{ github.workspace }}/app
+          enable-build-during-deployment: true
+          enable-oryx-build: true
+
+  deploy_prd:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prd' }}
+    name: Deploy to PRD
+    needs: build
+    environment: prd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: Download App Artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: app
+          path: ${{ github.workspace }}/app
+
+      - uses: azure/login@v2.1.0
+        name: Login to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: ./.github/actions/functions-deploy
+        name: Deploy to Azure Functions
+        with:
+          resource-group: ${{ vars.RG_NAME }}
+          functionapp-name: ${{ vars.INDEXING_FUNCTION_APP_NAME }}
+          package: ${{ github.workspace }}/app
+          enable-build-during-deployment: true
+          enable-oryx-build: true

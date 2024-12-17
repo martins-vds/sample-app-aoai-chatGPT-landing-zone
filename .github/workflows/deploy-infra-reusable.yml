@@ -1,0 +1,150 @@
+name: Deploy Infrastructure Reusable
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        description: "Environment to deploy to"
+        type: string
+        default: "dev"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to ${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - uses: azure/login@v2.1.0
+        name: Login to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create Ssh File
+        run: echo "${{ secrets.RUNNER_ADMIN_SSH_KEY }}" > ${{ runner.temp }}/ssh.key
+
+      - name: Create System Message File
+        run: echo "${{ vars.AZURE_OPENAI_SYSTEM_MESSAGE }}" > ${{ runner.temp }}/system-message.txt
+
+      - name: Create App Gateway Certificate
+        run: echo "${{ secrets.HTTPS_CERTIFICATE_PFX }}" > ${{ runner.temp }}/gateway.cer
+
+      - name: Deploy Infrastructure
+        id: deploy
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ vars.RG_NAME }}
+          template: ./infra/main.bicep
+          failOnStdErr: false
+          deploymentName: "deploy-infra-${{ github.run_id }}"
+          scope: "subscription"
+          region: ${{ vars.LOCATION }}
+          parameters: >
+            apimEnableLoggers=${{ vars.APIM_ENABLE_LOGGERS }}
+            apimRateLimitCalls=${{ vars.APIM_RATE_LIMIT_CALLS }}
+            apimRateLimitPeriod=${{ vars.APIM_RATE_LIMIT_PERIOD }}
+            apimRouteTableName=${{ vars.VNET_APIM_ROUTETABLE_NAME }}
+            appGatewayRouteTableName=${{ vars.VNET_APPGATEWAY_ROUTETABLE_NAME }}
+            appName=${{ vars.APP_NAME }}
+            assignRbacRoles=${{ vars.ASSIGN_RBAC_ROLES }}
+            deployOpenAi=${{ vars.DEPLOY_OPEN_AI }}
+            environmentName=${{ inputs.environment }}
+            gatewayPublicUrl=${{ vars.APPGATEWAY_PUBLIC_URL }}
+            gatewayBase64EncodedCertificate=@${{ runner.temp }}/gateway.cer
+            gatewayCertificatePassword=${{ secrets.HTTPS_CERTIFICATE_PASSWORD }}
+            location=${{ vars.LOCATION }}
+            openAIEmbeddingDeploymentSecondaryEnabled=${{ vars.AZURE_OPENAI_EMBEDDING_DEPLOYMENT_SECONDARY_ENABLED }}
+            openAIEmbeddingModelCapacity=${{ vars.AZURE_OPENAI_EMBEDDING_MODEL_CAPACITY }}
+            openAIModelCapacity=${{ vars.AZURE_OPENAI_MODEL_CAPACITY }}
+            openAIModelCapacitySecondary=${{ vars.AZURE_OPENAI_MODEL_CAPACITY_SECONDARY }}
+            openAIModelDeploymentName=${{ vars.AZURE_OPENAI_MODEL_DEPLOYMENT_NAME }}
+            openAIModelName=${{ vars.AZURE_OPENAI_MODEL_NAME }}
+            openAIModelSkuTier=${{ vars.AZURE_OPENAI_MODEL_SKU_TIER }}
+            openAIModelSkuTierSecondary=${{ vars.AZURE_OPENAI_MODEL_SKU_TIER_SECONDARY }}
+            openAIModelVersion=${{ vars.AZURE_OPENAI_MODEL_VERSION }}
+            openAiResourceGroupLocation=${{ vars.AZURE_OPENAI_RESOURCE_GROUP_LOCATION }}
+            openAiResourceGroupLocationSecondary=${{ vars.AZURE_OPENAI_RESOURCE_GROUP_LOCATION_SECONDARY }}
+            openAiResourceName=${{ vars.AZURE_OPENAI_RESOURCE_NAME }}
+            openAISystemMessage=@${{ runner.temp }}/system-message.txt
+            resourceGroupName=${{ vars.RG_NAME }}
+            searchIndexName=${{ vars.SEARCH_INDEX_NAME }}
+            searchSemanticSearchConfig=${{ vars.SEARCH_SEMANTIC_SEARCH_CONFIG }}            
+            vnetSubnetPrefixLength=${{ vars.VNET_SUBNET_PREFIX_LENGTH }}
+            vnetAddressRange=${{ vars.VNET_ADDRESS_RANGE }}
+            vnetName=${{ vars.VNET_NAME }}
+            vnetResourceGroupLocation=${{ vars.VNET_RG_LOCATION }}
+            vnetResourceGroupName=${{ vars.VNET_RG_NAME }}
+
+      - name: Parse Environment Variables
+        id: set-env-vars
+        run: |
+          $variablesJson = @"
+          [
+              {
+                  'name': 'AZURE_CONTAINER_REGISTRY_NAME',
+                  'value': '${{ steps.deploy.outputs.azureContainerRegistryName }}'
+              },
+              {
+                  'name': 'FRONTEND_APP_SERVICE_NAME',
+                  'value': '${{ steps.deploy.outputs.frontendAppServiceName }}'
+              },
+              {
+                  'name': 'BACKEND_APP_SERVICE_NAME',
+                  'value': '${{ steps.deploy.outputs.backendAppServiceName }}'
+              },
+              {
+                  'name': 'GH_RUNNER_SUBNET_NAME',
+                  'value': '${{ steps.deploy.outputs.ghRunnerSubnetName }}'
+              },
+              {
+                  'name': 'GH_RUNNER_VNET_ID',
+                  'value': '${{ steps.deploy.outputs.ghRunnerVnetId }}'
+              },
+              {
+                  'name': 'GH_RUNNER_SUBNET_ID',
+                  'value': '${{ steps.deploy.outputs.ghRunnerSubnetId }}'
+              },
+              {
+                  'name': 'GH_RUNNER_IDENTITY_NAME',
+                  'value': '${{ steps.deploy.outputs.ghRunnerIdentityName }}'
+              },
+              {
+                  'name': 'SEARCH_SERVICE_NAME',
+                  'value': '${{ steps.deploy.outputs.azureSearchService }}'
+              },
+              {
+                  'name': 'INDEXING_FUNCTION_APP_NAME',
+                  'value': '${{ steps.deploy.outputs.indexingFunctionAppName }}'
+              },
+              {
+                  'name': 'SCRAPING_FUNCTION_APP_NAME',
+                  'value': '${{ steps.deploy.outputs.scrapingFunctionAppName }}'
+              },
+              {
+                  'name': 'KEY_VAULT_NAME',
+                  'value': '${{ steps.deploy.outputs.keyVaultName }}'
+              }
+          ]
+          "@
+          
+          $compressedVariablesJson = $variablesJson | ConvertFrom-Json -AsHashtable -NoEnumerate -Depth 10 | ConvertTo-Json -Compress -Depth 10
+
+          Write-Output "json=$compressedVariablesJson" | Out-File -FilePath $Env:GITHUB_OUTPUT -Encoding utf8 -Append          
+        shell: pwsh
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/create-environment-variables
+        with:
+          environment: ${{ inputs.environment }}
+          variables: ${{ steps.set-env-vars.outputs.json }}
+          github-token: ${{ secrets.MANAGE_ENV_VARS_PAT }}

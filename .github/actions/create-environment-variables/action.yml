@@ -1,0 +1,28 @@
+name: 'Create Environment Variables'
+description: ''
+inputs:    
+    repo:
+      description: 'The repository name'
+      required: true
+      default: ${{ github.repository }}
+    environment:
+      description: 'The environment name'
+      required: true
+    variables:
+      description: 'The environment variables'
+      required: true
+    github-token:
+      description: 'The GitHub token'
+      required: true
+      default: ${{ github.token }}
+runs:
+  using: composite
+  steps:      
+      - run: >
+          ${{ github.action_path }}/scripts/create-variables.ps1
+          '${{ inputs.repo }}'
+          '${{ inputs.environment }}'
+          '${{ inputs.variables }}'
+          '${{ inputs.github-token }}'
+        name: Create Environment Variables
+        shell: pwsh

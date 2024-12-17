@@ -1,0 +1,51 @@
+name: Remove RBAC from Resource Group
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        type: choice
+        options:
+          - dev
+          - uat
+          - prd
+      role-name:
+        description: "Role name to remove"
+        required: true
+        type: choice
+        options:
+          - "Cognitive Services OpenAI User"
+      are-you-sure:
+        description: "Are you sure you want to remove the RBAC role?"
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  remove-rbac:
+    if: ${{ github.event.inputs.are-you-sure }}
+    runs-on: ubuntu-latest
+    name: Remove RBAC in ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: azure/login@v2.1.0
+        name: Login to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: azure/cli@v2.0.0
+        name: Remove RBAC
+        with:
+          azcliversion: latest
+          inlineScript: >
+            az role assignment delete 
+            --role "${{ github.event.inputs.role-name }}"
+            --scope /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ vars.RG_NAME }}
+            --yes

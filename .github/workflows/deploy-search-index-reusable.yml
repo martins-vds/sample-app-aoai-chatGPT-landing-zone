@@ -1,0 +1,71 @@
+name: Deploy Search Index Reusable
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        description: "Environment to deploy to"
+        type: string
+        default: "dev"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  start_runner:
+    runs-on: ubuntu-latest
+    name: Start GitHub Runner
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: azure/login@v2.1.0
+        name: Login to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Start Github Runner Container
+        uses: azure/cli@v2
+        env:
+          RESOURCE_GROUP: ${{ vars.RG_NAME }}
+          CONTAINER_NAME: "github-runner-${{ inputs.environment }}"
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az container start -g "$RESOURCE_GROUP" -n "$CONTAINER_NAME"
+
+  deploy:
+    runs-on: [self-hosted, "${{ inputs.environment }}"]
+    name: Deploy to ${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+    needs: [start_runner]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - run: Install-Module -Name Az.Accounts -AllowClobber -Force -Scope CurrentUser -Repository PSGallery
+        shell: pwsh
+
+      - uses: azure/login@v2.1.0
+        name: Login to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Azure PowerShell script
+        uses: azure/powershell@v2
+        env:
+          INDEX_NAME: ${{ vars.SEARCH_INDEX_NAME }}
+          RESOURCE_GROUP: ${{ vars.RG_NAME }}
+          SEARCH_SERVICE_NAME: ${{ vars.SEARCH_SERVICE_NAME }}
+          SEARCH_SERVICE_ENDPOINT: 'https://${{ vars.SEARCH_SERVICE_NAME }}.search.windows.net'
+          SEMANTIC_CONFIGURATION_NAME: ${{ vars.SEARCH_SEMANTIC_SEARCH_CONFIG }}
+          VECTOR_PROFILE_NAME: ${{ vars.SEARCH_VECTOR_PROFILE_NAME }}          
+          VECTOR_ALGORITHM_NAME: ${{ vars.SEARCH_VECTOR_ALGORITHM_NAME }}          
+        with:
+          azPSVersion: "latest"
+          inlineScript: ./infra/core/search/scripts/deploy-index.ps1

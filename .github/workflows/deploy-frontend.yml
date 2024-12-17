@@ -1,0 +1,90 @@
+name: Deploy Frontend
+
+run-name: Build and Deploy Frontend to ${{ github.event.inputs.environment || 'dev' }}
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app/frontend/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - uat
+          - prd
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ARTIFACT_NAME: 'app'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+    env:
+      NODE_VERSION: 20.x
+      APP_FOLDER: app/frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.0.3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install --prefix ${{ env.APP_FOLDER }}
+
+      - name: Build
+        env:
+          VITE_API_KEY: "__API_KEY__"
+        run: npm run build --prefix ${{ env.APP_FOLDER }}
+
+      - name: Test
+        run: npm run test --if-present --prefix ${{ env.APP_FOLDER }}
+
+      - name: Upload App Artifacts        
+        uses: actions/upload-artifact@v4.3.4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.APP_FOLDER }}/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy_dev:
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev') }}
+    needs: build
+    uses: ./.github/workflows/deploy-frontend-reusable.yml
+    with:
+      environment: ${{ github.event.inputs.environment || 'dev' }}
+      artifact-name: 'app'
+    secrets: inherit
+
+  deploy_uat:    
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'uat' }}
+    needs: build
+    uses: ./.github/workflows/deploy-frontend-reusable.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      artifact-name: 'app'
+    secrets: inherit
+
+  deploy_prd:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prd' }}
+    needs: build
+    uses: ./.github/workflows/deploy-frontend-reusable.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      artifact-name: 'app'
+    secrets: inherit

@@ -1,0 +1,69 @@
+name: 'Deploy Web Applications'
+description: 'Deploy web applications to the specified environment'	
+inputs:
+    resource-group:
+        description: 'The name of the resource group to deploy to'
+        required: true
+    webapp-name:
+        description: 'The name of the web app to deploy to'
+        required: true
+    package:
+        description: 'The path to the package to deploy'
+        required: true
+    enable-build-during-deployment:
+        description: 'Whether to enable build during deployment'
+        required: false
+        default: 'false'
+runs:
+  using: composite
+  steps:    
+    - name: Get Runner IP
+      id: get-ip
+      uses: ./.github/actions/my-ip-address
+
+    - name: Allow Runner IP Temporarily
+      uses: azure/cli@v2
+      env:
+        WEB_APP_NAME: ${{ inputs.webapp-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        IP_ADDRESS: ${{ steps.get-ip.outputs.ip_address }}
+      with:
+        azcliversion: latest
+        inlineScript: |
+          duration=1
+
+          az resource update -g "$RESOURCE_GROUP" -n "$WEB_APP_NAME" --resource-type "Microsoft.Web/sites" --set properties.publicNetworkAccess=Enabled >/dev/null
+          az webapp config access-restriction add -g "$RESOURCE_GROUP" -n "$WEB_APP_NAME" --rule-name build_server --action Allow --ip-address "$IP_ADDRESS/32" --priority 250 --scm-site true >/dev/null
+          
+          echo "Sleeping for $duration minutes..."
+          sleep "$duration"m
+    
+    - name: Enable Build During Deployment
+      if: ${{ inputs.enable-build-during-deployment == 'true' }}
+      uses: azure/cli@v2
+      env:
+        WEB_APP_NAME: ${{ inputs.webapp-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEB_APP_NAME" --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true >/dev/null
+    
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ inputs.webapp-name }}
+        package: ${{ inputs.package }}
+    
+    - name: Remove Runner IP
+      if: always()
+      uses: azure/cli@v2
+      env:
+        WEB_APP_NAME: ${{ inputs.webapp-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        IP_ADDRESS: ${{ steps.get-ip.outputs.ip_address }}
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az webapp config access-restriction remove -g "$RESOURCE_GROUP" -n "$WEB_APP_NAME" --ip-address "$IP_ADDRESS/32" --rule-name build_server --scm-site true >/dev/null
+          az resource update -g "$RESOURCE_GROUP" -n "$WEB_APP_NAME" --resource-type "Microsoft.Web/sites" --set properties.publicNetworkAccess=Disabled >/dev/null

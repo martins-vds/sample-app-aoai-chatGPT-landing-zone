@@ -1,0 +1,15 @@
+name: 'Get My IP Address'
+description: 'Get the IP address of the runner'
+outputs:
+  ip_address:
+    description: 'The IP address of the runner'
+    value: ${{ steps.get-ip.outputs.ip_address }}
+runs:
+  using: composite
+  steps:
+    - name: Get Runner IP
+      id: get-ip
+      run: |
+        ip_address=$(host myip.opendns.com resolver1.opendns.com | grep "myip.opendns.com has" | awk '{print $4}')
+        echo "ip_address=$ip_address" >> "$GITHUB_OUTPUT"
+      shell: bash

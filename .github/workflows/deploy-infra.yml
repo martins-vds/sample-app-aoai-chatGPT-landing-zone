@@ -1,0 +1,42 @@
+name: Deploy Infrastructure
+
+run-name: Deploy Infra to ${{ github.event.inputs.environment }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        type: choice
+        default: "dev"
+        options:
+          - dev
+          - uat
+          - prd
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy_dev:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev' }}
+    uses: ./.github/workflows/deploy-infra-reusable.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+    secrets: inherit
+
+  deploy_uat:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'uat' }}
+    uses: ./.github/workflows/deploy-infra-reusable.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+    secrets: inherit
+
+  deploy_prd:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prd' }}
+    uses: ./.github/workflows/deploy-infra-reusable.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+    secrets: inherit

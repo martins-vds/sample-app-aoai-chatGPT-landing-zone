@@ -1,0 +1,109 @@
+name: "Deploy to Azure Functions"
+description: "Deploy to Azure Functions"
+inputs:
+  resource-group:
+    description: "The name of the resource group to deploy to"
+    required: true
+  functionapp-name:
+    description: "The name of the web app to deploy to"
+    required: true
+  package:
+    description: "The path to the package to deploy"
+    required: false
+  run-from-package:
+    description: "Whether to run from package"
+    required: false
+    default: "false"
+  image:
+    description: "The name of the image to deploy"
+    required: false
+  enable-build-during-deployment:
+    description: "Whether to enable build during deployment"
+    required: false
+    default: "false"
+  enable-oryx-build:
+    description: "Whether to enable Oryx build"
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      run: |
+        # Check if both package and image are provided or both are not provided
+        if [ -n "${{ inputs.package }}" ] && [ -n "${{ inputs.image }}" ] || [ -z "${{ inputs.package }}" ] && [ -z "${{ inputs.image }}" ]; then
+          echo "Either package or image must be provided, but not both"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Get Runner IP
+      id: get-ip
+      uses: ./.github/actions/my-ip-address
+
+    - name: Allow Runner IP Temporarily
+      uses: azure/cli@v2
+      env:
+        FUNCTION_APP_NAME: ${{ inputs.functionapp-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        IP_ADDRESS: ${{ steps.get-ip.outputs.ip_address }}
+      with:
+        azcliversion: latest
+        inlineScript: |
+          duration=1
+
+          az resource update -g "$RESOURCE_GROUP" -n "$FUNCTION_APP_NAME" --resource-type "Microsoft.Web/sites" --set properties.publicNetworkAccess=Enabled >/dev/null
+          az functionapp config access-restriction add -g "$RESOURCE_GROUP" -n "$FUNCTION_APP_NAME" --rule-name build_server --action Allow --ip-address "$IP_ADDRESS/32" --priority 250 --scm-site true >/dev/null
+
+          echo "Sleeping for $duration minutes..."
+          sleep "$duration"m
+
+    - name: Enable Build During Deployment
+      if: ${{ inputs.enable-build-during-deployment == 'true' }}
+      uses: azure/cli@v2
+      env:
+        FUNCTION_APP_NAME: ${{ inputs.functionapp-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az functionapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP_NAME" --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true >/dev/null
+
+    - name: Enable Run From Package
+      if: ${{ inputs.run-from-package == 'true' }}
+      uses: azure/cli@v2
+      env:
+        FUNCTION_APP_NAME: ${{ inputs.functionapp-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az functionapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP_NAME" --settings WEBSITE_RUN_FROM_PACKAGE=1 >/dev/null
+
+    - name: Deploy to Azure Web App
+      if: ${{ inputs.package != '' && inputs.image == '' }}
+      uses: azure/functions-action@v1.5.2
+      with:
+        app-name: ${{ inputs.functionapp-name }}
+        package: ${{ inputs.package }}        
+        enable-oryx-build: ${{ inputs.enable-oryx-build }}
+
+    - name: Update Function App with New Image
+      if: ${{ inputs.image != '' && inputs.package == '' }}
+      uses: azure/functions-container-action@v1.2.2
+      with:
+        app-name: ${{ inputs.functionapp-name }}
+        image: ${{ inputs.image }}
+
+    - name: Remove Runner IP
+      if: always()
+      uses: azure/cli@v2
+      env:
+        FUNCTION_APP_NAME: ${{ inputs.functionapp-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        IP_ADDRESS: ${{ steps.get-ip.outputs.ip_address }}
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az functionapp config access-restriction remove -g "$RESOURCE_GROUP" -n "$FUNCTION_APP_NAME" --ip-address "$IP_ADDRESS/32" --rule-name build_server --scm-site true >/dev/null
+          az resource update -g "$RESOURCE_GROUP" -n "$FUNCTION_APP_NAME" --resource-type "Microsoft.Web/sites" --set properties.publicNetworkAccess=Disabled >/dev/null
