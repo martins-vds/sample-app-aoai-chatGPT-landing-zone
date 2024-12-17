@@ -156,9 +156,7 @@ module globalPolicy 'core/apim/policy.bicep' = {
       corsFragment.outputs.corsFragmentName
     ]
   }
-  dependsOn: [
-    corsFragment    
-  ]
+
 }
 
 module openAiApi 'core/apim/openai-api.bicep' = if (enableAzureOpenAiSupport) {
@@ -227,7 +225,6 @@ resource monitoringMetricsPublisher 'Microsoft.Authorization/roleAssignments@202
   }
   dependsOn: [
     openAiApi
-    apiManagement
   ]
 }
 
@@ -241,7 +238,6 @@ resource azureEventHubsDataSender 'Microsoft.Authorization/roleAssignments@2022-
   }
   dependsOn: [
     openAiApi
-    apiManagement
   ]
 }
 
@@ -261,7 +257,6 @@ module openAiUserPrimary 'core/apim/role.bicep' = if (assignRbacRoles && enableA
   }
   dependsOn: [
     azureEventHubsDataSender
-    apiManagement
   ]
 }
 
@@ -281,7 +276,6 @@ module openAiUserSecondary 'core/apim/role.bicep' = if (assignRbacRoles && enabl
   }
   dependsOn: [
     openAiUserPrimary
-    apiManagement
   ]
 }
 

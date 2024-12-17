@@ -93,8 +93,6 @@ param searchStrictness string = '3'
 param storageAccountName string = ''
 param storageResourceGroupName string = ''
 param storageResourceGroupLocation string = location
-param storageContainerName string = 'content'
-param storageChatLogsContainerName string = 'chat'
 @allowed([
   'Standard_LRS'
   'Standard_GRS'
@@ -103,11 +101,6 @@ param storageChatLogsContainerName string = 'chat'
   'Premium_LRS'
 ])
 param storageSkuName string = 'Standard_LRS'
-param storageQueueIndexing string = 'indexing-file-queue'
-param storageQueueUploads string = 'uploaded-file-queue'
-param storageQueueSummarization string = 'summarization-file-queue'
-param storageQueueExtraction string = 'extraction-file-queue'
-param storageQueueExport string = 'export-file-queue'
 
 param deployOpenAi bool = true
 
@@ -450,13 +443,6 @@ module backend 'core/host/appservice.bicep' = {
       AZURE_SEARCH_USE_SEMANTIC_SEARCH: searchUseSemanticSearch
       AZURE_SEARCH_VECTOR_COLUMNS: searchVectorColumns
       AZURE_STORAGE_ACCOUNT: storage.outputs.name
-      AZURE_STORAGE_CHAT_LOGS_CONTAINER: storageChatLogsContainerName
-      AZURE_STORAGE_QUEUE_EXPORT: storageQueueExport
-      AZURE_STORAGE_QUEUE_EXTRACTION: storageQueueExtraction
-      AZURE_STORAGE_QUEUE_INDEXING: storageQueueIndexing
-      AZURE_STORAGE_QUEUE_SUMMARIZATION: storageQueueSummarization
-      AZURE_STORAGE_QUEUE_UPLOADS: storageQueueUploads
-      AZURE_STORAGE_UPLOADS_CONTAINER: storageContainerName
       CREATE_INDEX_ON_START: true
       DATASOURCE_TYPE: 'AzureCognitiveSearch'
       DEBUG: isDev
