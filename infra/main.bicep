@@ -150,6 +150,11 @@ param formRecognizerResourceGroupLocation string = location
 param formRecognizerSkuName string = ''
 param formRecognizerApiVersion string = '2023-07-31'
 
+param languageServiceName string = ''
+param languageServiceResourceGroupName string = ''
+param languageServiceResourceGroupLocation string = location
+param languageServiceSkuName string = ''
+
 // Used for the Azure AD application
 param authClientId string = ''
 @secure()
@@ -207,6 +212,10 @@ resource vnetResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: vnetResourceGroupName
   location: vnetResourceGroupLocation
   tags: unionTags
+}
+
+resource languageServiceResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' existing = if (!empty(languageServiceResourceGroupName)) {
+  name: !empty(languageServiceResourceGroupName) ? languageServiceResourceGroupName : mainResourceGroupName
 }
 
 resource formRecognizerResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' existing = if (!empty(formRecognizerResourceGroupName)) {
@@ -465,18 +474,19 @@ module backend 'core/host/appservice.bicep' = {
 }
 
 module languageService 'core/ai/cognitiveservices.bicep' = {
-  scope: mainResourceGroup
+  scope: languageServiceResourceGroup
   name: 'language-service'
   params: {
-    name: '${abbrs.cognitiveServicesAccounts}lang-${resourceToken}'
+    name: !empty(languageServiceName) ? languageServiceName : '${abbrs.cognitiveServicesAccounts}language-${resourceToken}'
     tags: unionTags
     sku: {
-      name: 'S0'
+      name: !empty(languageServiceSkuName) ? languageServiceSkuName : 'S0'
     }
     keyVaultName: vault.outputs.keyVaultName
     kind: 'TextAnalytics'
+    location: languageServiceResourceGroupLocation
     publicNetworkAccess: 'Disabled'
-    privateEndpointLocation: location
+    privateEndpointLocation: vnetResourceGroupLocation
     privateEndpointSubnetId: network.outputs.defaultSubnetResourceId
     linkPrivateEndpointToPrivateDns: isDev
     privateDnsZoneResourceGroup: privateDnsZonesResourceGroupName
