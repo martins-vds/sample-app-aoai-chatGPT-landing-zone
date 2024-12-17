@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.32.4.45862",
-      "templateHash": "7754207390547911390"
+      "templateHash": "15790957246226801852"
     }
   },
   "parameters": {
@@ -427,6 +427,22 @@
     "formRecognizerApiVersion": {
       "type": "string",
       "defaultValue": "2023-07-31"
+    },
+    "languageServiceName": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "languageServiceResourceGroupName": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "languageServiceResourceGroupLocation": {
+      "type": "string",
+      "defaultValue": "[parameters('location')]"
+    },
+    "languageServiceSkuName": {
+      "type": "string",
+      "defaultValue": ""
     },
     "authClientId": {
       "type": "string",
@@ -5470,22 +5486,20 @@
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "language-service",
-      "resourceGroup": "[variables('mainResourceGroupName')]",
+      "resourceGroup": "[if(not(empty(parameters('languageServiceResourceGroupName'))), parameters('languageServiceResourceGroupName'), variables('mainResourceGroupName'))]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
         },
         "mode": "Incremental",
         "parameters": {
-          "name": {
-            "value": "[format('{0}lang-{1}', variables('abbrs').cognitiveServicesAccounts, variables('resourceToken'))]"
-          },
+          "name": "[if(not(empty(parameters('languageServiceName'))), createObject('value', parameters('languageServiceName')), createObject('value', format('{0}language-{1}', variables('abbrs').cognitiveServicesAccounts, variables('resourceToken'))))]",
           "tags": {
             "value": "[variables('unionTags')]"
           },
           "sku": {
             "value": {
-              "name": "S0"
+              "name": "[if(not(empty(parameters('languageServiceSkuName'))), parameters('languageServiceSkuName'), 'S0')]"
             }
           },
           "keyVaultName": {
@@ -5494,11 +5508,14 @@
           "kind": {
             "value": "TextAnalytics"
           },
+          "location": {
+            "value": "[parameters('languageServiceResourceGroupLocation')]"
+          },
           "publicNetworkAccess": {
             "value": "Disabled"
           },
           "privateEndpointLocation": {
-            "value": "[parameters('location')]"
+            "value": "[parameters('vnetResourceGroupLocation')]"
           },
           "privateEndpointSubnetId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Resources/deployments', 'network'), '2022-09-01').outputs.defaultSubnetResourceId.value]"
@@ -5811,7 +5828,6 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('mainResourceGroupName'))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('vnetResourceGroupName')), 'Microsoft.Resources/deployments', 'network')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('mainResourceGroupName')), 'Microsoft.Resources/deployments', 'keyvault')]"
       ]
