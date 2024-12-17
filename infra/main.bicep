@@ -477,7 +477,9 @@ module languageService 'core/ai/cognitiveservices.bicep' = {
   scope: languageServiceResourceGroup
   name: 'language-service'
   params: {
-    name: !empty(languageServiceName) ? languageServiceName : '${abbrs.cognitiveServicesAccounts}language-${resourceToken}'
+    name: !empty(languageServiceName)
+      ? languageServiceName
+      : '${abbrs.cognitiveServicesAccounts}language-${resourceToken}'
     tags: unionTags
     sku: {
       name: !empty(languageServiceSkuName) ? languageServiceSkuName : 'S0'
