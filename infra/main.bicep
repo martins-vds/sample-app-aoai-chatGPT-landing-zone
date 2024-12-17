@@ -464,6 +464,25 @@ module backend 'core/host/appservice.bicep' = {
   }
 }
 
+module languageService 'core/ai/cognitiveservices.bicep' = {
+  scope: mainResourceGroup
+  name: 'language-service'
+  params: {
+    name: '${abbrs.cognitiveServicesAccounts}lang-${resourceToken}'
+    tags: unionTags
+    sku: {
+      name: 'S0'
+    }
+    keyVaultName: vault.outputs.keyVaultName
+    kind: 'TextAnalytics'
+    publicNetworkAccess: 'Disabled'
+    privateEndpointLocation: location
+    privateEndpointSubnetId: network.outputs.defaultSubnetResourceId
+    linkPrivateEndpointToPrivateDns: isDev
+    privateDnsZoneResourceGroup: privateDnsZonesResourceGroupName
+  }
+}
+
 module openAi 'core/ai/cognitiveservices.bicep' = if (deployOpenAi) {
   name: 'openai'
   scope: openAiResourceGroup
@@ -652,6 +671,7 @@ module formRecognizer 'core/ai/cognitiveservices.bicep' = {
     keyVaultName: vault.outputs.keyVaultName
     linkPrivateEndpointToPrivateDns: isDev
     privateDnsZoneResourceGroup: privateDnsZonesResourceGroupName
+    privateEndpointLocation: vnetResourceGroupLocation
   }
 
   dependsOn: [
